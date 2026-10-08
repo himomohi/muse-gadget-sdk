@@ -51,13 +51,21 @@ if(CONFIG_MUSE_ENABLED)
     list(APPEND srcs "muse_chat_text.c")
     # Your own character (tools/muse/AVATAR_RECIPE.md) stands in for the default
     # avatar when avatar/muse_pixel.c exists here; this avatar/ is gitignored. The
-    # default is in avatar/ at the top of the project.
+    # default is in avatar/ at the top of the project. With MUSE_PERSONA the
+    # persona renderer (muse_persona.c) stands in for the default avatar; the
+    # user's own character still wins.
     file(GLOB custom_avatar CONFIGURE_DEPENDS "${COMPONENT_DIR}/avatar/muse_pixel.c")
     if(custom_avatar)
         message(STATUS "Custom avatar: components/muse/avatar/muse_pixel.c")
         list(APPEND srcs "avatar/muse_pixel.c")
+    elseif(CONFIG_MUSE_PERSONA)
+        message(STATUS "Persona renderer: components/muse/muse_persona.c")
+        list(APPEND srcs "muse_persona.c")
     else()
         list(APPEND srcs "../../avatar/muse_pixel.c")
+    endif()
+    if(CONFIG_MUSE_PET)
+        list(APPEND srcs "muse_pet_core.c" "muse_pet.c" "muse_pet_ui.c")
     endif()
     if(CONFIG_MUSE_BOARD_WAVESHARE_S3_175C)
         list(APPEND srcs "boards/board_waveshare_s3_175c.c" "boards/muse_lcd_bands.c")

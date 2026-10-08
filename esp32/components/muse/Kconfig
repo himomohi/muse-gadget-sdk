@@ -97,4 +97,28 @@ menu "Muse"
             voice notes go over Home Link's own session to its paired VM and
             replies are shown as text only.
 
+    config MUSE_PERSONA
+        bool "Persona renderer: multi-character pixel-art avatar"
+        depends on MUSE_ENABLED
+        default y
+        help
+            Replace the default avatar renderer with the persona renderer:
+            three original characters (mallow, sprout, pebble), switchable at
+            runtime, with dance moves, touch-driven eye tracking, situational
+            costumes and growth stages. A user-supplied
+            components/muse/avatar/muse_pixel.c still takes precedence.
+
+    config MUSE_PET
+        bool "Tamagotchi-style pet engine and care UI"
+        depends on MUSE_ENABLED && MUSE_PERSONA
+        default y
+        help
+            Raise the character like a tamagotchi: hunger, happiness,
+            cleanliness, energy and affection decay over time and are
+            restored by feeding, playing, washing, sleeping and petting. The
+            pet hatches from an egg and grows through baby/child/adult
+            stages, persisted in NVS across reboots. Adds a pet care tile
+            (one swipe left from settings) with stat bars, action buttons
+            and the character switcher.
+
 endmenu
