@@ -31,6 +31,9 @@
 #include "muse_ui.h"
 #include "muse_voice.h"
 #include "muse_wifi.h"
+#if CONFIG_MUSE_PET
+#include "muse_pet.h"
+#endif
 
 static const char *TAG = "muse";
 
@@ -69,6 +72,11 @@ void muse_app_run(const muse_board_t *board)
     muse_settings_set_listener(on_setting);
     muse_state_init();
     muse_battery_init();
+#if CONFIG_MUSE_PET
+    if (muse_pet_init() != ESP_OK) {
+        ESP_LOGE(TAG, "pet engine unavailable");
+    }
+#endif
     muse_state_set_caption("WAKING UP...");
     ESP_ERROR_CHECK(muse_ui_start());
     ESP_LOGI(TAG, "UI built: free internal %u", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
