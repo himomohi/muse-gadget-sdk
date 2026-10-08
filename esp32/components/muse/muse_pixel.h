@@ -38,6 +38,14 @@ typedef struct {
     float mode_t;    /* seconds in current mode */
     float level;     /* 0..1 live audio level */
     float happy;     /* 0..1 pet reaction */
+    /* Persona extensions (muse_persona renderer). Plain renderers ignore them. */
+    float gaze_x;    /* -1..1 touch-driven eye target, 0 = centre */
+    float gaze_y;    /* -1..1 touch-driven eye target, 0 = centre */
+    float dance;     /* 0..1 dance energy */
+    uint8_t character; /* persona character id (muse_persona.h) */
+    uint8_t costume;   /* persona costume id (muse_persona.h) */
+    uint8_t growth;    /* persona growth stage (muse_persona.h) */
+    int8_t mood;       /* -2..2 pet mood modifier */
 } muse_pose_t;
 
 /* Accent colour of a mode (for the surrounding UI), as 0xRRGGBB. */

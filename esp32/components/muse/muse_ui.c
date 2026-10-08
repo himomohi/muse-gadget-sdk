@@ -43,6 +43,13 @@
 #include "muse_settings_ui.h"
 #include "muse_state.h"
 #include "muse_wifi.h"
+#if CONFIG_MUSE_PERSONA
+#include "muse_persona.h"
+#endif
+#if CONFIG_MUSE_PET
+#include "muse_pet.h"
+#include "muse_pet_ui.h"
+#endif
 #if CONFIG_MUSE_WATCHER_CAMERA
 #include "boards/watcher_camera.h"
 #endif
@@ -92,7 +99,10 @@ static lv_indev_t *s_indev;
 static lv_obj_t *s_tv;
 static lv_obj_t *s_face;
 static lv_obj_t *s_settings;
-static lv_obj_t *s_dots[2];
+static lv_obj_t *s_dots[3];
+#if CONFIG_MUSE_PET
+static lv_obj_t *s_pet_tile;
+#endif
 static lv_obj_t *s_wifi_icon;
 static lv_obj_t *s_ble_icon;
 static lv_obj_t *s_cover;
@@ -440,6 +450,23 @@ static void on_canvas_clicked(lv_event_t *e)
 {
     (void)e;
     muse_state_make_happy();
+#if CONFIG_MUSE_PET
+    /* Petting also feeds the tamagotchi engine, and the tap point steers the
+     * character's gaze (eye tracking). */
+    muse_pet_touch();
+    lv_indev_t *indev = lv_indev_active();
+    if (indev) {
+        lv_point_t pt;
+        lv_indev_get_point(indev, &pt);
+        lv_area_t at;
+        lv_obj_get_coords(s_canvas, &at);
+        float cx = (at.x1 + at.x2) / 2.0f, cy = (at.y1 + at.y2) / 2.0f;
+        float hw = (at.x2 - at.x1) / 2.0f, hh = (at.y2 - at.y1) / 2.0f;
+        if (hw > 0 && hh > 0) {
+            muse_pet_gaze((pt.x - cx) / hw, (pt.y - cy) / hh);
+        }
+    }
+#endif
 }
 
 static const lv_font_t *font_pick(const lv_font_t *full, const lv_font_t *compact)
@@ -787,6 +814,11 @@ static void build_screen(void)
          * children every time it draws any part of it. */
         lv_obj_set_scrollbar_mode(s_face, LV_SCROLLBAR_MODE_OFF);
         s_settings = lv_tileview_add_tile(s_tv, 1, 0, LV_DIR_LEFT);
+#if CONFIG_MUSE_PET
+        /* Pet care tile: one more swipe left from settings. */
+        s_pet_tile = lv_tileview_add_tile(s_tv, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+        lv_obj_set_scrollbar_mode(s_pet_tile, LV_SCROLLBAR_MODE_OFF);
+#endif
         face = s_face;
     }
 
@@ -994,7 +1026,13 @@ static void build_overlays(void)
     lv_obj_t *scr = lv_screen_active();
 
     /* Page dots. */
-    for (int i = 0; i < 2 && s_tv; i++) {
+    int ndots =
+#if CONFIG_MUSE_PET
+        3;
+#else
+        2;
+#endif
+    for (int i = 0; i < ndots && s_tv; i++) {
         lv_obj_t *d = lv_obj_create(scr);
         lv_obj_remove_style_all(d);
         lv_obj_set_size(d, 8, 8);
@@ -1002,7 +1040,11 @@ static void build_overlays(void)
         lv_obj_set_style_bg_opa(d, LV_OPA_COVER, 0);
         lv_obj_set_style_bg_color(d, lv_color_hex(COLOR_DOT_OFF), 0);
         lv_obj_remove_flag(d, LV_OBJ_FLAG_CLICKABLE);
+#if CONFIG_MUSE_PET
+        lv_obj_align(d, LV_ALIGN_BOTTOM_MID, (i - 1) * 16, -14);
+#else
         lv_obj_align(d, LV_ALIGN_BOTTOM_MID, i ? 8 : -8, -14);
+#endif
         s_dots[i] = d;
     }
 
@@ -1148,7 +1190,12 @@ static void update_chrome(float now)
     s_next_settings_tick = now + SETTINGS_TICK_S;
 
     if (s_tv) {
-        int page = lv_tileview_get_tile_active(s_tv) == s_settings;
+        lv_obj_t *active = lv_tileview_get_tile_active(s_tv);
+        int page = active == s_settings ? 1 :
+#if CONFIG_MUSE_PET
+                   active == s_pet_tile ? 2 :
+#endif
+                   0;
         bool subpage = muse_settings_ui_in_subpage();
         bool swipe = !page || !subpage;
         if (swipe != lv_obj_has_flag(s_tv, LV_OBJ_FLAG_SCROLLABLE)) {
@@ -1156,13 +1203,22 @@ static void update_chrome(float now)
         }
         int shown = page * 2 + subpage;
         if (shown != s_shown_page) {
-            for (int i = 0; i < 2; i++) {
+            int ndots =
+#if CONFIG_MUSE_PET
+                3;
+#else
+                2;
+#endif
+            for (int i = 0; i < ndots; i++) {
                 lv_obj_set_style_bg_color(s_dots[i], lv_color_hex(i == page ? COLOR_ACCENT : COLOR_DOT_OFF), 0);
                 lv_obj_set_flag(s_dots[i], LV_OBJ_FLAG_HIDDEN, page && subpage);
             }
             s_shown_page = shown;
         }
         muse_settings_ui_tick(lv_obj_get_scroll_x(s_tv) > 0);
+#if CONFIG_MUSE_PET
+        muse_pet_ui_tick(active == s_pet_tile);
+#endif
     }
 
     /* Joining, the icon blinks: the compact layout has no state label. */
@@ -1478,6 +1534,25 @@ static void frame_tick(lv_timer_t *timer)
         .level = s_level,
         .happy = muse_state_happiness(),
     };
+#if CONFIG_MUSE_PET
+    {
+        /* Persona extensions: character, growth, mood, costume, dance, gaze. */
+        pet_state_t ps;
+        muse_pet_snapshot(&ps);
+        float gx, gy;
+        muse_pet_get_gaze(&gx, &gy);
+        pose.gaze_x = gx;
+        pose.gaze_y = gy;
+        pose.dance = muse_pet_dance();
+        pose.character = ps.character;
+        pose.growth = ps.growth;
+        pose.mood = ps.sleeping ? -1 : pet_mood(&ps);
+        pose.costume = pet_costume(&ps);
+        if (pose.dance > 0.05f && pose.costume == COSTUME_NONE) {
+            pose.costume = COSTUME_HEADPHONES; /* grooving */
+        }
+    }
+#endif
     muse_pixel_render(&pose);
     invalidate_muse();
 
@@ -1519,6 +1594,11 @@ esp_err_t muse_ui_start(void)
     } else {
         muse_menu_build(lv_screen_active(), s_w, s_h);
     }
+#if CONFIG_MUSE_PET
+    if (s_pet_tile) {
+        muse_pet_ui_build(s_pet_tile);
+    }
+#endif
     build_overlays();
     lv_timer_create(frame_tick, muse_board->frame_ms, NULL);
     s_ready = true;
