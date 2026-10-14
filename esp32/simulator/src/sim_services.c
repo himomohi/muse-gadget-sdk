@@ -24,6 +24,7 @@
 #include "muse_menu.h"
 #include "muse_settings.h"
 #include "muse_settings_ui.h"
+#include "muse_locale_ui.h"
 
 #define SIM_DEFAULT_NAME "MuseGadget-SIM001"
 #define SIM_DEFAULT_SSID "Muse Simulator"
@@ -190,6 +191,7 @@ muse_link_state_t muse_link_state(void)
 void muse_settings_ui_build(lv_obj_t *tile)
 {
     lv_obj_t *label = lv_label_create(tile);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
     lv_label_set_text(label, "Settings unavailable in preview");
     lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(label);

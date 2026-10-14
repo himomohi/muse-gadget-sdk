@@ -16,6 +16,8 @@ limitations under the License.
 
 # Linux Device SDK
 
+한국어 설정과 사용 방법: [한국어 사용 안내](../README.ko.md)
+
 This turns any Linux computer, like a Raspberry Pi, into a Muse gadget.
 Install it, pair it with the Muse app, and Muse can run commands and move
 files on the machine.

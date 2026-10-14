@@ -40,6 +40,8 @@
 #include "muse_wifi.h"
 
 /* Keep content in a column that stays inside a round panel (and fits a 368 px one). */
+#include "muse_locale_ui.h"
+
 #define LIST_W 330
 #define LIST_TOP 84
 #define ROW_H 58
@@ -118,7 +120,7 @@ static lv_obj_t *s_text_back;
 /* ---------- building blocks ---------- */
 
 /* Network and phone names can have characters the fonts lack (muse_text.h). */
-#define SHOWN_MAX 96
+#define SHOWN_MAX 256
 
 static lv_obj_t *label(lv_obj_t *parent, const lv_font_t *font, uint32_t color, const char *text)
 {
@@ -133,7 +135,7 @@ static lv_obj_t *label(lv_obj_t *parent, const lv_font_t *font, uint32_t color, 
 static void set_text(lv_obj_t *l, const char *text)
 {
     char shown[SHOWN_MAX];
-    text = muse_text_showable(text, shown, sizeof(shown));
+    text = muse_text_showable(muse_tr(text), shown, sizeof(shown));
     if (strcmp(lv_label_get_text(l), text) != 0) {
         lv_label_set_text(l, text);
     }
@@ -739,7 +741,7 @@ static bool rebuild_scan_list(void)
         bool saved = is_saved(s_aps[i].ssid);
         saved_seen |= saved;
         char buf[24];
-        snprintf(buf, sizeof(buf), "%s%d dBm", saved ? "saved  " : (s_aps[i].secure ? "" : "open  "), s_aps[i].rssi);
+        snprintf(buf, sizeof(buf), "%s%d dBm", muse_tr(saved ? "saved  " : (s_aps[i].secure ? "" : "open  ")), s_aps[i].rssi);
         lv_label_set_text(v, buf);
     }
     if (gen && !n) {
@@ -787,7 +789,7 @@ static void tick_wifi(void)
         strlcpy(buf, "No saved networks. Scan and pick one.", sizeof(buf));
         break;
     case MUSE_WIFI_CONNECTING:
-        snprintf(buf, sizeof(buf), "Joining %s\n%s", w.ssid, w.detail);
+        snprintf(buf, sizeof(buf), "Joining %s\n%s", w.ssid, muse_tr(w.detail));
         break;
     case MUSE_WIFI_CONNECTED:
         snprintf(buf, sizeof(buf), "Connected to %s\n%s  -  %d dBm", w.ssid, w.ip, w.rssi);
@@ -797,7 +799,7 @@ static void tick_wifi(void)
         break;
     case MUSE_WIFI_FAILED:
     default:
-        snprintf(buf, sizeof(buf), "Couldn't join %s\n%s", w.ssid, w.detail);
+        snprintf(buf, sizeof(buf), "Couldn't join %s\n%s", w.ssid, muse_tr(w.detail));
         break;
     }
     set_text(s_wifi_status, buf);
@@ -892,9 +894,9 @@ static void build_hatch_page(lv_obj_t *tile)
 
 static void tick_hatch(void)
 {
-    char link[64];
-    snprintf(link, sizeof(link), "Muse app: %s\n%s", muse_link_hatch_linked() ? "paired" : "not paired",
-             muse_link_state_name(muse_link_state()));
+    char link[160];
+    snprintf(link, sizeof(link), "Muse app: %s\n%s", muse_tr(muse_link_hatch_linked() ? "paired" : "not paired"),
+             muse_tr(muse_link_state_name(muse_link_state())));
     set_text(s_link_status, link);
     if (s_link_reset_armed_us && esp_timer_get_time() - s_link_reset_armed_us >= 5000000) {
         s_link_reset_armed_us = 0;
@@ -904,7 +906,7 @@ static void tick_hatch(void)
     muse_hatch_status_t h;
     muse_hatch_status(&h);
     char buf[96];
-    snprintf(buf, sizeof(buf), "%s\n%s", muse_hatch_state_name(h.state), h.detail);
+    snprintf(buf, sizeof(buf), "%s\n%s", muse_tr(muse_hatch_state_name(h.state)), muse_tr(h.detail));
     set_text(s_hatch_status, buf);
     lv_obj_set_style_text_color(s_hatch_status, lv_color_hex(h.state == MUSE_HATCH_REACHABLE ? COLOR_OK :
                                                              h.state == MUSE_HATCH_UNREACHABLE ? COLOR_WARN : COLOR_DIM), 0);
@@ -957,7 +959,7 @@ static void tick_ble(void)
         break;
     case MUSE_BLE_CONNECTED:
     default:
-        snprintf(buf, sizeof(buf), "Phone connected\n%s", b.secure ? "Paired" : "Waiting for pairing");
+        snprintf(buf, sizeof(buf), "Phone connected\n%s", muse_tr(b.secure ? "Paired" : "Waiting for pairing"));
         break;
     }
     set_text(s_ble_status, buf);
@@ -1228,15 +1230,15 @@ static void build_power_page(lv_obj_t *tile)
     note(list, "Power Muse off completely?");
     button(list, LV_SYMBOL_POWER "  Power off", COLOR_DANGER, on_power_off, NULL);
     button(list, "Cancel", COLOR_TEXT, on_back, NULL);
-    char text[128];
+    char text[384];
     const char *power = muse_board->power_button ? muse_board->power_button : muse_board->talk_button;
     const char *sleep = muse_board->power_button ? muse_board->power_button : muse_board->aux_button;
     if (sleep) {
         snprintf(text, sizeof(text), "Press the %s button to turn it back on. To just turn the screen off, press the %s button.",
-                 power, sleep);
+                 muse_tr(power), muse_tr(sleep));
     } else {
         /* No button turns the screen off (the 1.85C's BOOT talks). */
-        snprintf(text, sizeof(text), "Press the %s button to turn it back on.", power);
+        snprintf(text, sizeof(text), "Press the %s button to turn it back on.", muse_tr(power));
     }
     note(list, text);
 }
@@ -1299,7 +1301,7 @@ static void tick_home(void)
     set_text(s_home_battery, buf);
 
     snprintf(buf, sizeof(buf), "Muse %s  -  %s", esp_app_get_description()->version,
-             w.state == MUSE_WIFI_CONNECTED ? w.ip : "offline");
+             w.state == MUSE_WIFI_CONNECTED ? w.ip : muse_tr("offline"));
     set_text(s_about, buf);
 }
 

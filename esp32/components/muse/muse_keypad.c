@@ -19,6 +19,8 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "muse_locale_ui.h"
+
 #define COLOR_TEXT 0xf2efff
 #define COLOR_CARD 0x1a1530
 #define COLOR_CARD_PRESSED 0x2e2552
@@ -89,7 +91,7 @@ static void update_map(void)
 {
     int i = 0;
     for (int k = 0; k < 12; k++) {
-        s_map[i++] = s_mode == LETTERS && s_upper && k < 9 ? UPPER_LABELS[k] : LABELS[s_mode][k];
+        s_map[i++] = s_mode == LETTERS && s_upper && k < 9 ? UPPER_LABELS[k] : muse_tr(LABELS[s_mode][k]);
         if (k % 3 == 2) {
             s_map[i++] = "\n";
         }
@@ -98,7 +100,7 @@ static void update_map(void)
         s_map[i++] = " ";   /* a hidden spacer: an empty label would end the map */
     }
     s_map[i++] = NEXT_MODE[s_mode];
-    s_map[i++] = lv_textarea_get_password_mode(s_ta) ? "Show" : "Hide";
+    s_map[i++] = muse_tr(lv_textarea_get_password_mode(s_ta) ? "Show" : "Hide");
     s_map[i++] = LV_SYMBOL_OK;
     if (s_round) {
         s_map[i++] = " ";

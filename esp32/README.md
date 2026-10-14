@@ -16,6 +16,8 @@ limitations under the License.
 
 # ESP32 Device SDK
 
+한국어 설정과 사용 방법: [한국어 사용 안내](../README.ko.md)
+
 Flash this open source firmware onto any ESP32-compatible board to connect
 Muse to your home Wi-Fi. On boards with the home-network tunnel, Muse can reach
 the devices you already own and anything you build with a local HTTP API.

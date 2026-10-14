@@ -71,7 +71,7 @@ def test_a_paired_device_is_left_alone_unless_forced(state, monkeypatch, capsys)
     monkeypatch.setattr(pair_module, "SetupController", CompletingController)
 
     assert cli.main(["pair", "--timeout", "60"]) == 1
-    assert capsys.readouterr().err == "Already paired. Run `musegadget unpair` first, or pass --force.\n"
+    assert capsys.readouterr().err == "이미 연결되어 있습니다. 먼저 `musegadget unpair`를 실행하거나 --force를 사용하세요.\n"
     assert cli.main(["pair", "--force", "--timeout", "60"]) == 0
 
 
@@ -81,7 +81,7 @@ def test_an_invalid_sdk_token_stops_pairing_before_setup_opens(state, monkeypatc
 
     assert cli.main(["pair", "--timeout", "60"]) == 1
     output = capsys.readouterr()
-    assert output.err == "Can't pair: the SDK token is not valid; copy it again from gadgets.muse.ai.\n"
+    assert output.err == "연결할 수 없습니다: SDK 토큰이 올바르지 않습니다. gadgets.muse.ai에서 다시 복사하세요.\n"
     assert output.out == ""
 
 
@@ -90,17 +90,17 @@ def test_completed_setup_reports_paired(state, monkeypatch, capsys):
 
     assert cli.main(["pair", "--timeout", "120"]) == 0
     output = capsys.readouterr()
-    assert output.out == ("Setup open for 2 minutes. In the Muse app, add a device\n"
-                          "and choose MuseGadgetABCDEF.\nPaired.\n")
-    assert output.err == ("No SDK token yet. Get one at gadgets.muse.ai and run "
-                          "`bash install.sh --sdk-token mgst_…`; gadgets without one will stop pairing.\n")
+    assert output.out == ("2분 동안 연결을 기다립니다. Muse 앱에서 기기를 추가하고\n"
+                          "MuseGadgetABCDEF을 선택하세요.\n연결했습니다.\n")
+    assert output.err == ("SDK 토큰이 없습니다. gadgets.muse.ai에서 발급받은 뒤 "
+                          "`bash install.sh --sdk-token mgst_…`를 실행하세요. 토큰 없이는 연결할 수 없습니다.\n")
 
 
 def test_a_setup_window_that_closes_unpaired_says_so(state, monkeypatch, capsys):
     monkeypatch.setattr(pair_module, "SetupController", SilentController)
 
     assert cli.main(["pair", "--timeout", "60"]) == 1
-    assert capsys.readouterr().err.endswith("Setup window closed without pairing.\n")
+    assert capsys.readouterr().err.endswith("연결하지 않은 채 대기 시간이 종료되었습니다.\n")
 
 
 def test_pair_prints_nothing_and_hands_the_setup_window_to_the_caller(state, monkeypatch, capsys):

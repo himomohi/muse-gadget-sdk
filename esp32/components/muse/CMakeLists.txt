@@ -38,6 +38,8 @@ if(CONFIG_MUSE_ENABLED)
         "muse_settings.c"
         "muse_settings_ui.c"
         "muse_text.c"
+        "muse_locale.c"
+        "muse_locale_ui.c"
         "muse_keypad.c"
         "muse_lv_mem.c"
         "muse_link.c"
@@ -49,6 +51,11 @@ if(CONFIG_MUSE_ENABLED)
         list(APPEND srcs "muse_chat_link.c")   # text replies over Link's session
     endif()
     list(APPEND srcs "muse_chat_text.c")
+    if(CONFIG_MUSE_LANGUAGE_KOREAN)
+        include("${COMPONENT_DIR}/../../cmake/korean_fonts.cmake")
+        muse_korean_font_sources(korean_fonts)
+        list(APPEND srcs ${korean_fonts})
+    endif()
     if(CONFIG_MUSE_CJK_FONT)
         list(APPEND srcs "fonts/muse_font_cjk_16.c")   # captions' CJK fallback
     endif()

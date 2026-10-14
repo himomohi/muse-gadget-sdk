@@ -146,6 +146,9 @@ endif()
 
 set(MUSE_COMPONENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../components/muse")
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/korean_fonts.cmake")
+muse_korean_font_sources(korean_fonts)
+
 add_executable(muse_simulator
     src/main.c
     src/sim_board.c
@@ -154,6 +157,9 @@ add_executable(muse_simulator
     "${MUSE_COMPONENT_DIR}/muse_ui.c"
     "${MUSE_COMPONENT_DIR}/muse_state.c"
     "${MUSE_COMPONENT_DIR}/muse_text.c"
+    "${MUSE_COMPONENT_DIR}/muse_locale.c"
+    "${MUSE_COMPONENT_DIR}/muse_locale_ui.c"
+    ${korean_fonts}
     "${MUSE_COMPONENT_DIR}/../../avatar/muse_pixel.c"
 )
 
@@ -179,6 +185,8 @@ if(APPLE)
     find_library(MUSE_SIM_IOKIT_FRAMEWORK IOKit REQUIRED)
     target_link_libraries(muse_simulator PRIVATE ${MUSE_SIM_IOKIT_FRAMEWORK})
 endif()
+
+target_compile_definitions(muse_simulator PRIVATE CONFIG_MUSE_LANGUAGE_KOREAN=1)
 
 target_compile_options(muse_simulator PRIVATE -Wall -Wextra -Wpedantic)
 if(MUSE_SIM_WARNINGS_AS_ERRORS)
@@ -229,3 +237,19 @@ endif()
 
 message(STATUS "Muse simulator LVGL target: ${MUSE_SIM_LVGL_TARGET}")
 message(STATUS "Muse simulator SDL2 target: ${MUSE_SIM_SDL_TARGET}")
+
+if(BUILD_TESTING)
+    add_executable(muse_korean_font_test
+        tests/test_korean_font.c
+        "${MUSE_COMPONENT_DIR}/muse_locale.c"
+        "${MUSE_COMPONENT_DIR}/muse_locale_ui.c"
+        ${korean_fonts})
+    target_include_directories(muse_korean_font_test PRIVATE "${MUSE_COMPONENT_DIR}")
+    target_compile_definitions(muse_korean_font_test PRIVATE CONFIG_MUSE_LANGUAGE_KOREAN=1)
+    target_compile_options(muse_korean_font_test PRIVATE -Wall -Wextra -Werror)
+    target_link_libraries(muse_korean_font_test PRIVATE ${MUSE_SIM_LVGL_TARGET} ${MUSE_SIM_SDL_TARGET} Threads::Threads m)
+    if(APPLE)
+        target_link_libraries(muse_korean_font_test PRIVATE ${MUSE_SIM_IOKIT_FRAMEWORK})
+    endif()
+    add_test(NAME muse_korean_glyph_coverage COMMAND muse_korean_font_test)
+endif()

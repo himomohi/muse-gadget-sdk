@@ -32,30 +32,29 @@ UNIT="/etc/systemd/system/musegadget.service"
 STATE_DIR="/var/lib/musegadget"
 BLUEZ_CONF="/etc/bluetooth/main.conf"
 BLUEZ_DROPIN="/etc/systemd/system/bluetooth.service.d/zz-musegadget.conf"
-DEFAULT_SOURCE="git+https://github.com/facebookincubator/muse-gadget-sdk@main#subdirectory=linux"
+DEFAULT_SOURCE="git+https://github.com/himomohi/muse-gadget-sdk@persona-pet#subdirectory=linux"
 APT_PACKAGES=(bluez python3 python3-dbus python3-gi python3-cryptography curl ca-certificates)
 ARCH_PACKAGES=(bluez python python-dbus python-gobject python-cryptography curl ca-certificates)
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
-warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
-die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+warn() { printf '\033[33m경고:\033[0m %s\n' "$*" >&2; }
+die() { printf '\033[31m오류:\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<EOF
-Usage: install.sh [options]
+사용법: install.sh [옵션]
 
-  --from SOURCE     Install musegadget from SOURCE: a local linux/ checkout, a
-                    wheel, or a pip/uv URL. Default: $DEFAULT_SOURCE
-  --run-as USER     Account whose permissions your Muse's commands run with.
-                    Default: the account running this installer.
-  --sdk-token TOKEN Your mgst_ SDK token from gadgets.muse.ai. If omitted, an
-                    interactive install prompts securely. Saved, readable
-                    only by root, in $STATE_DIR/sdk_token.
-  --yes             Don't ask for confirmation.
-  --no-pair         Install without opening Bluetooth pairing.
-  --uninstall       Remove musegadget. Keeps the device identity and pairing
-                    in $STATE_DIR unless --purge is also given.
-  -h, --help        Show this help.
+  --from SOURCE     로컬 linux/ 폴더, wheel 또는 pip/uv URL에서 설치합니다.
+                    기본값: $DEFAULT_SOURCE
+  --run-as USER     Muse 명령을 실행할 계정입니다. 기본값: 설치를 실행한 계정.
+  --sdk-token TOKEN gadgets.muse.ai에서 발급받은 mgst_ SDK 토큰입니다.
+                    생략하면 안전한 터미널 입력으로 요청합니다.
+                    $STATE_DIR/sdk_token에 root만 읽을 수 있도록 저장합니다.
+  --yes             확인 질문 없이 진행합니다.
+  --no-pair         블루투스 연결을 시작하지 않고 설치합니다.
+  --uninstall       프로그램을 삭제합니다. --purge가 없으면 기기 ID와 연결을 유지합니다.
+  --purge           삭제할 때 기기 ID와 연결 정보도 삭제합니다.
+  -h, --help        이 도움말을 표시합니다.
 EOF
 }
 
@@ -63,7 +62,7 @@ EOF
 ask() {
     local prompt="$1" answer
     if [ "$ASSUME_YES" = 1 ]; then return 0; fi
-    if [ ! -r /dev/tty ]; then die "no terminal to confirm on; rerun with --yes"; fi
+    if [ ! -r /dev/tty ]; then die "확인할 터미널이 없습니다. --yes로 다시 실행하세요"; fi
     printf '%s [Y/n] ' "$prompt" >/dev/tty
     read -r answer </dev/tty || true
     case "$answer" in ""|y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
@@ -76,8 +75,8 @@ systemd_running() { [ -d /run/systemd/system ]; }
 # --- Checks ------------------------------------------------------------------
 
 check_system() {
-    [ "$(uname -s)" = Linux ] || die "The Linux Device SDK runs on Linux."
-    [ -r /etc/os-release ] || die "cannot identify this Linux distribution (/etc/os-release missing)."
+    [ "$(uname -s)" = Linux ] || die "Linux 기기 SDK는 Linux에서 실행합니다."
+    [ -r /etc/os-release ] || die "Linux 배포판을 확인할 수 없습니다(/etc/os-release 없음)."
     # shellcheck disable=SC1091
     . /etc/os-release
     local id="${ID:-}" version="${VERSION_ID:-0}" major="${VERSION_ID:-0}"
@@ -86,40 +85,40 @@ check_system() {
         debian|raspbian)
             DISTRO_FAMILY=debian
             [ "${major:-0}" -ge 11 ] 2>/dev/null ||
-                die "$PRETTY_NAME is too old. Upgrade to Debian 11 (Raspberry Pi OS Bullseye) or later." ;;
+                die "$PRETTY_NAME은 너무 오래된 버전입니다. Debian 11(Raspberry Pi OS Bullseye) 이상으로 업그레이드하세요." ;;
         ubuntu)
             DISTRO_FAMILY=debian
             [ "$(printf '%s\n22.04\n' "$version" | sort -V | head -1)" = 22.04 ] ||
-                die "$PRETTY_NAME is too old. Upgrade to Ubuntu 22.04 or later." ;;
+                die "$PRETTY_NAME은 너무 오래된 버전입니다. Ubuntu 22.04 이상으로 업그레이드하세요." ;;
         arch)
             DISTRO_FAMILY=arch ;;
         *)
             case " ${ID_LIKE:-} " in
                 *" arch "*)
                     DISTRO_FAMILY=arch
-                    warn "$PRETTY_NAME is untested; continuing because it is Arch-based." ;;
+                    warn "$PRETTY_NAME은 검증되지 않았지만 Arch 기반이므로 계속합니다." ;;
                 *" debian "*|*" ubuntu "*)
                     DISTRO_FAMILY=debian
-                    warn "$PRETTY_NAME is untested; continuing because it is Debian-based." ;;
-                *) die "$PRETTY_NAME is not supported. This installer needs Debian/Ubuntu or Arch Linux." ;;
+                    warn "$PRETTY_NAME은 검증되지 않았지만 Debian 기반이므로 계속합니다." ;;
+                *) die "$PRETTY_NAME은 지원하지 않습니다. Debian/Ubuntu 또는 Arch Linux가 필요합니다." ;;
             esac ;;
     esac
     if [ "$DISTRO_FAMILY" = arch ]; then
-        command -v pacman >/dev/null || die "pacman not found."
+        command -v pacman >/dev/null || die "pacman을 찾을 수 없습니다."
         ARCH="$(uname -m)"
-        case "$ARCH" in x86_64|aarch64) ;; *) die "unsupported Arch architecture: $ARCH" ;; esac
+        case "$ARCH" in x86_64|aarch64) ;; *) die "지원하지 않는 Arch 아키텍처: $ARCH" ;; esac
     else
-        command -v apt-get >/dev/null || die "apt-get not found."
+        command -v apt-get >/dev/null || die "apt-get을 찾을 수 없습니다."
         # Many 32-bit Raspberry Pi installs run a 64-bit kernel, so ask dpkg,
         # which reports the userland architecture.
         ARCH="$(dpkg --print-architecture)"
-        case "$ARCH" in armhf|arm64|amd64) ;; *) die "unsupported architecture: $ARCH" ;; esac
+        case "$ARCH" in armhf|arm64|amd64) ;; *) die "지원하지 않는 아키텍처: $ARCH" ;; esac
     fi
     if ! systemd_running; then
-        warn "systemd is not running; the service will be installed but not started."
+        warn "systemd가 실행 중이 아닙니다. 서비스를 설치하지만 시작하지는 않습니다."
     fi
     if [ -z "$(ls /sys/class/bluetooth 2>/dev/null)" ]; then
-        warn "no Bluetooth adapter found. You can install, but pairing with the Muse app needs Bluetooth LE."
+        warn "블루투스 어댑터를 찾지 못했습니다. 설치는 가능하지만 Muse 앱 연결에는 Bluetooth LE가 필요합니다."
     fi
 }
 
@@ -128,16 +127,16 @@ choose_account() {
         if [ "$(id -u)" -ne 0 ]; then RUN_AS="$(id -un)"; else RUN_AS="${SUDO_USER:-}"; fi
     fi
     if [ -z "$RUN_AS" ] || [ "$RUN_AS" = root ]; then
-        die "choose the account your Muse's commands run as with --run-as USER (running them as root is not supported)."
+        die "--run-as USER로 Muse 명령을 실행할 계정을 선택하세요(root 실행은 지원하지 않습니다)."
     fi
-    id "$RUN_AS" >/dev/null 2>&1 || die "account '$RUN_AS' does not exist."
+    id "$RUN_AS" >/dev/null 2>&1 || die "계정 '$RUN_AS'이 없습니다."
 
     local admin=""
     if as_root sudo -n -l -U "$RUN_AS" 2>/dev/null | grep -qE '\(ALL( : ALL)?\) (NOPASSWD: )?ALL'; then
-        admin=" This account has administrator (sudo) rights, so your Muse will be able to do anything on this machine, including reading the device's own credentials."
+        admin=" 이 계정에는 관리자(sudo) 권한이 있어 Muse가 기기의 인증 정보를 읽는 등 이 컴퓨터의 모든 작업을 할 수 있습니다."
     fi
-    say "Your Muse will be able to run any command on this machine as '$RUN_AS', with that account's permissions.$admin"
-    ask "Continue?" || die "cancelled. Rerun with --run-as to choose a different account."
+    say "Muse는 이 컴퓨터에서 '$RUN_AS' 계정의 권한으로 명령을 실행할 수 있습니다.$admin"
+    ask "계속할까요?" || die "취소했습니다. 다른 계정을 선택하려면 --run-as로 다시 실행하세요."
 }
 
 # --- Install -----------------------------------------------------------------
@@ -155,7 +154,7 @@ install_packages() {
     fi
     case "$SOURCE" in git+*) command -v git >/dev/null || missing+=(git) ;; esac
     if [ "${#missing[@]}" -eq 0 ]; then return; fi
-    say "Installing system packages: ${missing[*]}"
+    say "시스템 패키지 설치: ${missing[*]}"
     if [ "$DISTRO_FAMILY" = arch ]; then
         as_root pacman -S --needed --noconfirm "${missing[@]}"
     else
@@ -168,7 +167,7 @@ install_uv() {
     if [ -x "$PREFIX/bin/uv" ] && [ "$("$PREFIX/bin/uv" --version | awk '{print $2}')" = "$UV_VERSION" ]; then
         return
     fi
-    say "Installing uv $UV_VERSION"
+    say "uv $UV_VERSION 설치 중"
     as_root mkdir -p "$PREFIX/bin"
     curl -fsSL "https://astral.sh/uv/$UV_VERSION/install.sh" |
         as_root env UV_INSTALL_DIR="$PREFIX/bin" UV_NO_MODIFY_PATH=1 sh -s -- --quiet
@@ -176,7 +175,7 @@ install_uv() {
 
 enable_bluez() {
     if [ "$DISTRO_FAMILY" = arch ] && systemd_running; then
-        say "Enabling the BlueZ service"
+        say "BlueZ 서비스 활성화 중"
         as_root systemctl enable --now bluetooth.service
     fi
 }
@@ -186,10 +185,10 @@ install_musegadget() {
     # The system interpreter is required: dbus and gi come from apt and are
     # built for it.
     if [ ! -x "$VENV/bin/python" ]; then
-        say "Creating $VENV"
+        say "가상 환경 생성: $VENV"
         as_root "$uv" venv --quiet --python /usr/bin/python3 --system-site-packages "$VENV"
     fi
-    say "Installing musegadget from $SOURCE"
+    say "musegadget 설치: $SOURCE"
     as_root "$uv" pip install --quiet --python "$VENV/bin/python" --no-deps --reinstall "$SOURCE"
     local data
     data="$("$VENV/bin/python" -c 'import musegadget, os; print(os.path.join(os.path.dirname(musegadget.__file__), "data"))')"
@@ -232,7 +231,7 @@ print("changed")
 EOF
 )"
     if [ "$result" = changed ]; then
-        say "Set BlueZ ExchangeMTU = 256 (backup: $BLUEZ_CONF.pre-musegadget)"
+        say "BlueZ ExchangeMTU를 256으로 설정했습니다(백업: $BLUEZ_CONF.pre-musegadget)"
         if systemd_running; then as_root systemctl restart bluetooth; fi
     fi
     disable_bluez_battery
@@ -278,22 +277,22 @@ EOF
 )"
     case "$result" in
         changed)
-            say "Turned off BlueZ's battery plugin so phones are never asked to bond ($BLUEZ_DROPIN)"
+            say "휴대폰에 기기 등록을 요청하지 않도록 BlueZ 배터리 플러그인을 껐습니다($BLUEZ_DROPIN)"
             as_root systemctl daemon-reload
             as_root systemctl restart bluetooth
             ;;
-        skipped) say "Left BlueZ plugins as they are: could not read bluetooth.service's command line." ;;
+        skipped) say "bluetooth.service 실행 명령을 읽지 못해 BlueZ 플러그인을 그대로 유지합니다." ;;
     esac
 }
 
 save_sdk_token() {
     if [ -z "$SDK_TOKEN" ]; then
         if ! as_root test -s "$STATE_DIR/sdk_token"; then
-            say "No SDK token yet. Get one at gadgets.muse.ai and rerun with --sdk-token; gadgets without one will stop pairing."
+            say "SDK 토큰이 없습니다. gadgets.muse.ai에서 발급받고 --sdk-token으로 다시 실행하세요. 토큰 없이는 연결할 수 없습니다."
         fi
         return 0
     fi
-    say "Saving your SDK token"
+    say "SDK 토큰 저장 중"
     as_root install -d -m 0700 "$STATE_DIR"
     printf '%s\n' "$SDK_TOKEN" | as_root install -m 0600 /dev/stdin "$STATE_DIR/sdk_token"
 }
@@ -303,16 +302,16 @@ prompt_sdk_token() {
         return 0
     fi
     [ -r /dev/tty ] || return 0
-    printf 'Muse SDK token (mgst_...; input hidden, Enter to keep/skip): ' >/dev/tty
+    printf 'Muse SDK 토큰(mgst_...; 입력 숨김, 유지/건너뛰기는 Enter): ' >/dev/tty
     IFS= read -r -s SDK_TOKEN </dev/tty || SDK_TOKEN=""
     printf '\n' >/dev/tty
     if [ -n "$SDK_TOKEN" ] && ! [[ "$SDK_TOKEN" =~ ^mgst_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$ ]]; then
-        die "that SDK token is not valid; copy it again from gadgets.muse.ai."
+        die "SDK 토큰이 올바르지 않습니다. gadgets.muse.ai에서 다시 복사하세요."
     fi
 }
 
 install_service() {
-    say "Installing the musegadget service"
+    say "musegadget 서비스 설치 중"
     sed "s/@RUN_AS@/$RUN_AS/" "$DATA_DIR/musegadget.service" | as_root tee "$UNIT" >/dev/null
     if systemd_running; then
         as_root systemctl daemon-reload
@@ -323,11 +322,11 @@ install_service() {
 
 pair() {
     if as_root test -s "$STATE_DIR/pairing.json"; then
-        say "Already paired; the service will reconnect to your Muse."
+        say "이미 연결되어 있습니다. 서비스가 Muse에 다시 연결합니다."
         return
     fi
     if [ "$NO_PAIR" = 1 ]; then
-        say "Skipping pairing. Run 'sudo musegadget pair' when you're ready."
+        say "연결을 건너뜁니다. 준비되면 'sudo musegadget pair'를 실행하세요."
         return
     fi
     cat <<EOF
@@ -338,7 +337,7 @@ Pair with your Muse:
   3. When asked for Wi-Fi, pick the network shown; no password is needed.
 
 EOF
-    as_root /usr/local/bin/musegadget pair || warn "not paired. Run 'sudo musegadget pair' to try again."
+    as_root /usr/local/bin/musegadget pair || warn "연결되지 않았습니다. 'sudo musegadget pair'로 다시 시도하세요."
 }
 
 summary() {
@@ -346,16 +345,16 @@ summary() {
     as_root /usr/local/bin/musegadget info
     cat <<EOF
 
-Service:   sudo systemctl status musegadget
-Logs:      sudo journalctl -u musegadget -f
-Remove:    bash install.sh --uninstall
+서비스:   sudo systemctl status musegadget
+기록:     sudo journalctl -u musegadget -f
+삭제:     bash install.sh --uninstall
 EOF
 }
 
 # --- Uninstall ---------------------------------------------------------------
 
 uninstall() {
-    say "Removing musegadget"
+    say "musegadget 삭제 중"
     if systemd_running && [ -f "$UNIT" ]; then
         as_root systemctl disable --now musegadget.service >/dev/null 2>&1 || true
     fi
@@ -364,9 +363,9 @@ uninstall() {
     as_root rm -rf "$PREFIX"
     if [ "$PURGE" = 1 ]; then
         as_root rm -rf "$STATE_DIR"
-        say "Removed the device identity and pairing too. Remove the device in the Muse app as well."
+        say "기기 ID와 연결 정보도 삭제했습니다. Muse 앱에서도 기기를 삭제하세요."
     else
-        say "Kept the device identity and pairing in $STATE_DIR (use --purge to remove them)."
+        say "$STATE_DIR의 기기 ID와 연결 정보를 유지했습니다(삭제하려면 --purge 사용)."
     fi
     if [ -f "$BLUEZ_DROPIN" ]; then
         as_root rm -f "$BLUEZ_DROPIN"
@@ -374,10 +373,10 @@ uninstall() {
             as_root systemctl daemon-reload
             as_root systemctl restart bluetooth
         fi
-        say "Turned BlueZ's battery plugin back on."
+        say "BlueZ 배터리 플러그인을 다시 켰습니다."
     fi
     if [ -f "$BLUEZ_CONF.pre-musegadget" ]; then
-        say "BlueZ settings were left as they are; the original is at $BLUEZ_CONF.pre-musegadget."
+        say "BlueZ 설정을 그대로 유지했습니다. 원본은 $BLUEZ_CONF.pre-musegadget에 있습니다."
     fi
 }
 
@@ -393,12 +392,12 @@ main() {
             --uninstall) UNINSTALL=1; shift ;;
             --purge) PURGE=1; shift ;;
             -h|--help) usage; exit 0 ;;
-            *) usage >&2; die "unknown option: $1" ;;
+            *) usage >&2; die "알 수 없는 옵션: $1" ;;
         esac
     done
     if [ "$(id -u)" -ne 0 ]; then
-        command -v sudo >/dev/null || die "run this as root, or install sudo."
-        sudo true || die "this installer needs sudo."
+        command -v sudo >/dev/null || die "root로 실행하거나 sudo를 설치하세요."
+        sudo true || die "이 설치기는 sudo가 필요합니다."
     fi
     if [ "$UNINSTALL" = 1 ]; then uninstall; return; fi
     if [ -d "$SOURCE" ]; then SOURCE="$(cd "$SOURCE" && pwd)"; fi
@@ -406,7 +405,7 @@ main() {
     check_system
     prompt_sdk_token
     if [ -n "$SDK_TOKEN" ] && ! [[ "$SDK_TOKEN" =~ ^mgst_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$ ]]; then
-        die "that SDK token is not valid; copy it again from gadgets.muse.ai."
+        die "SDK 토큰이 올바르지 않습니다. gadgets.muse.ai에서 다시 복사하세요."
     fi
     choose_account
     install_packages

@@ -32,6 +32,8 @@
 #define AWAKE_BIT BIT0   /* while !s_asleep */
 #define NUDGE_BIT BIT1
 
+#include "muse_locale.h"
+
 static volatile muse_mode_t s_mode = MUSE_MODE_BOOT;
 static volatile int64_t s_mode_since_us;
 static volatile float s_level;
@@ -114,8 +116,17 @@ void muse_state_set_caption(const char *fmt, ...)
     xSemaphoreTake(s_format_lock, portMAX_DELAY);
     va_list ap;
     va_start(ap, fmt);
+    #if CONFIG_MUSE_LANGUAGE_KOREAN
+    muse_locale_vsnprintf(buf, sizeof(buf), fmt, ap);
+#else
     vsnprintf(buf, sizeof(buf), fmt, ap);
+#endif
     va_end(ap);
+#if CONFIG_MUSE_LANGUAGE_KOREAN
+    /* Status captions passed as "%s" are translated after formatting. */
+    const char *translated = muse_tr(buf);
+    if (translated != buf) strlcpy(buf, translated, sizeof(buf));
+#endif
     muse_text_to_ascii(buf, sizeof(buf));   /* replies have curly quotes and dashes */
 
     portENTER_CRITICAL(&s_lock);

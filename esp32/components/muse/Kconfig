@@ -230,6 +230,15 @@ menu "Muse"
             them. Needs PSRAM. Without it, voice notes go over Home Link's own
             session to its paired VM and replies are shown as text.
 
+    config MUSE_LANGUAGE_KOREAN
+        bool "한국어 화면 / Korean interface"
+        depends on MUSE_ENABLED
+        default y
+        help
+            Show the device interface and pet care in Korean. Includes full
+            Hangul syllables and jamo for captions, plus a compact UI font.
+            Disable this option to use the upstream English interface.
+
     config MUSE_PERSONA
         bool "Persona renderer: multi-character pixel-art avatar"
         depends on MUSE_ENABLED

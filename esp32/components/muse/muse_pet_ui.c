@@ -21,6 +21,8 @@
 #include "muse_persona.h"
 #include "muse_pet.h"
 
+#include "muse_locale_ui.h"
+
 #define COLOR_TEXT 0xf2efff
 #define COLOR_DIM 0x8b84a8
 #define COLOR_CARD 0x1a1530
@@ -229,9 +231,14 @@ void muse_pet_ui_tick(bool visible)
     s_last_drawn = s.ticks;
     s_dirty = false;
 
-    char buf[48];
-    snprintf(buf, sizeof(buf), "%s - %s", persona_character_id(s.character),
-             GROWTH_NAMES[s.growth < 4 ? s.growth : 3]);
+    char buf[96];
+#if CONFIG_MUSE_LANGUAGE_KOREAN
+    const char *name = persona_character_name(s.character);
+#else
+    const char *name = persona_character_id(s.character);
+#endif
+    snprintf(buf, sizeof(buf), "%s - %s", name,
+             muse_tr(GROWTH_NAMES[s.growth < 4 ? s.growth : 3]));
     lv_label_set_text(s_title, buf);
 
     uint8_t vals[5] = { s.satiety, s.happiness, s.cleanliness, s.energy, s.affection };

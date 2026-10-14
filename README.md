@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Muse Gadgets
+# Muse 기기 SDK · 한국어 버전
 
 <p align="center">
   <picture>
@@ -23,58 +23,39 @@ limitations under the License.
   </picture>
 </p>
 
-Muse gadgets are open source devices you build yourself. Program an
-off-the-shelf ESP32 board or set up a Raspberry Pi with our device SDKs, then
-connect Muse to your displays, buttons, sensors, actuators, and whatever else
-you've got lying on your workbench.
+ESP32 보드나 라즈베리 파이·리눅스 컴퓨터를 Muse와 연결하는 오픈소스 SDK입니다.
+화면, 버튼, 마이크, 스피커, 센서와 직접 만든 기기를 연결할 수 있습니다.
 
-We open sourced the SDKs and firmware here. It's built by hackers, for hackers,
-just for fun. Side effects of tinkering may include bricked boards, voided
-warranties, brownouts, or bankruptcies. Proceed at your own risk!
+이 포크의 `persona-pet` 브랜치는 원본 SDK의 최신 구조를 기반으로 한국어 화면과
+캐릭터·펫 돌봄 기능을 제공합니다. 원본 소스는 [facebookincubator/muse-gadget-sdk](https://github.com/facebookincubator/muse-gadget-sdk)입니다.
 
-| | |
+| 시작하기 | 내용 |
 |---|---|
-| [**ESP32 Device SDK**](esp32) | Connect your ESP32 board to Muse through our open source SDK. Throw in a screen to show images, add audio in and out, or wire up other sensors. |
-| [**Linux Device SDK**](linux) | Turn that spare Raspberry Pi or Linux box into a Muse gadget. Hack in your own commands to let Muse handle sysadmin chores or your Home Assistant setup. |
+| [한국어 사용 안내](README.ko.md) | 화면 메뉴, 연결, 펫 돌봄, 언어 설정, 검증 방법 |
+| [ESP32 SDK](esp32) | 화면·음성·센서를 사용하는 펌웨어 |
+| [Linux SDK](linux) | 라즈베리 파이·리눅스 기기 연결과 관리 |
+| [블루투스 설정 화면](esp32/tools/muse/ble_setup.html) | 한국어로 와이파이·기기 토큰·소리·절전 설정 |
+| [원본 영어 안내](README.en.md) | 상위 저장소의 소개·라이선스·개발 문서 |
 
-Before you flash or pair a gadget, get an
-[SDK token](https://gadgets.muse.ai/settings/sdk-tokens) and review the
-[Gadget SDK Terms](https://gadgets.muse.ai/sdk-terms). Every gadget needs a
-token to pair.
+## 연결 준비
 
-ESP32 and Linux gadgets pair with the Muse app on iOS and Android, via
-Settings > Devices. Turn on Developer mode there first, then look for devices
-prefixed with "MuseGadget".
-Each directory has a `README.md` to get started and an `AGENTS.md` for coding
-agents like [Muse Code](https://developer.meta.com/ai/lp/muse-code/).
+먼저 [SDK 토큰](https://gadgets.muse.ai/settings/sdk-tokens)을 발급받고
+[Gadget SDK 이용 조건](https://gadgets.muse.ai/sdk-terms)을 확인하세요.
+연결하는 각 기기에는 토큰이 필요합니다. 토큰을 소스에 커밋하지 마세요.
 
-For battery-input power profiling, see the [porting recipe](esp32/docs/power/README.md).
-The opt-in diagnostic core is board-neutral; boards supply its hooks and state
-matrices, and [power_sweep.py](esp32/tools/power/power_sweep.py) drives the
-USB-free sweep. The isolated diagnostic does not pair or need an SDK token;
-fixture safety and explicit hardware authorization still come first, as the
-[PPK2 rules](esp32/docs/power/ppk2.md) describe.
+휴대폰의 Muse 앱에서 **설정 → 기기 → 개발자 모드**를 켜고 기기를 추가합니다.
+`MuseGadget`으로 시작하는 기기를 선택하고 화면이나 버튼으로 연결을 승인하세요.
+화면에 표시되는 설정·상태·돌봄 문구는 한국어가 기본입니다.
 
-## Community
+한국어는 펌웨어의 `CONFIG_MUSE_LANGUAGE_KOREAN=y`로 선택합니다.
+영어로 사용하려면 이 옵션을 끄세요. 명령 이름, API, 기기 ID, 토큰, SSID는 바꾸지 않습니다.
 
-Meet other hackers who are building and customizing Muse gadgets in our
-community [Discord](https://discord.gg/3bhjCkZdd6). Get inspired, support each
-other, and share what you make.
+## 커뮤니티와 라이선스
 
-## License
+기기 제작과 커스텀 사례는 [커뮤니티 Discord](https://discord.gg/3bhjCkZdd6)에서 공유할 수 있습니다.
 
-Muse Gadgets is licensed under the Apache License, Version 2.0, found in
-[`LICENSE`](LICENSE), except for these third-party files, which keep their
-upstream licenses:
-
-| Path | Upstream | License |
-|---|---|---|
-| [`esp32/components/minimp3/include/minimp3.h`](esp32/components/minimp3) | [lieff/minimp3](https://github.com/lieff/minimp3) | CC0-1.0, see [`LICENSE`](esp32/components/minimp3/LICENSE) |
-| [`esp32/components/muse/boards/ostb_echoear_display_init.h`](esp32/components/muse/boards/ostb_echoear_display_init.h) | [78/xiaozhi-esp32 ESP-VoCat panel sequence](https://github.com/78/xiaozhi-esp32/blob/0d576d3d4c049c6f55eaf879725dc23e516511b4/main/boards/espressif/esp-vocat/esp_vocat.cc) | MIT, retained in the file header |
-| [`esp32/main/pixel_font.c`](esp32/main/pixel_font.c) | Adafruit GFX `glcdfont.c` | BSD-2-Clause, in the file header |
-
-Dependencies fetched at build time are under their own licenses: ESP-IDF
-components (into `esp32/managed_components/`), and the simulator's LVGL and
-SDL (listed in [`esp32/simulator/THIRD_PARTY.md`](esp32/simulator/THIRD_PARTY.md)).
-
-The Apache License does not cover the [Jollybot avatar](esp32/avatar).
+SDK는 [Apache License 2.0](LICENSE)을 따릅니다. minimp3(CC0), Adafruit 픽셀 폰트(BSD-2-Clause),
+EchoEar 패널 초기화 코드(MIT)는 원래 라이선스를 유지합니다.
+한글 폰트는 GNU Unifont의 변경하지 않은 부분집합이며 [폰트 안내](esp32/components/muse/fonts/README.md)에
+출처와 라이선스를 적었습니다. Jollybot 아바타에는 SDK의 Apache 라이선스가 적용되지 않습니다.
+빌드 시 가져오는 ESP-IDF, LVGL, SDL 의존성에도 각각의 라이선스가 적용됩니다.

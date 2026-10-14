@@ -313,6 +313,7 @@ typedef void lv_obj_t;
 #define COLOR_TEXT 2
 static lv_obj_t *s_power;
 static char shown[128];
+static const char *muse_tr(const char *text) { return text; }
 static struct { const char *power_button, *talk_button, *aux_button; } board = {"red bottom-left", "top-right", NULL}, *muse_board = &board;
 static void on_power_off(void *p) { (void)p; }
 static void on_back(void *p) { (void)p; }

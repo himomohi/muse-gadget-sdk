@@ -39,6 +39,8 @@
 
 static const char *TAG = "muse_menu";
 
+#include "muse_locale_ui.h"
+
 #define COLOR_TEXT 0xf2efff
 #define COLOR_DIM 0x8b84a8
 #define COLOR_ACCENT 0xa77dff
@@ -169,7 +171,7 @@ static void set_text(lv_obj_t *l, const char *text)
 static void select_hint(const char *action)
 {
     char text[40];
-    snprintf(text, sizeof(text), "%s%s", muse_board->keyboard ? "Enter " : "", action);
+    snprintf(text, sizeof(text), "%s%s", muse_board->keyboard ? "Enter " : "", muse_tr(action));
     set_text(s_hint_select, text);
 }
 
@@ -252,9 +254,9 @@ static void status_text(char *buf, size_t n)
     }
     const char *phone = b.state == MUSE_BLE_OFF ? "Off" : (b.state == MUSE_BLE_CONNECTED ? "Connected" : b.name);
     snprintf(buf, n, "Wi-Fi %s\nIP    %s\nLink  %s\nMuse  %s\nPhone %s\nPower %s\nVer   %s",
-             w.state == MUSE_WIFI_CONNECTED ? w.ssid : (w.state == MUSE_WIFI_OFF ? "off" : "offline"),
-             w.state == MUSE_WIFI_CONNECTED ? w.ip : "-", muse_link_state_name(muse_link_state()),
-             muse_hatch_state_name(h.state), phone, batt,
+             w.state == MUSE_WIFI_CONNECTED ? w.ssid : (muse_tr(w.state == MUSE_WIFI_OFF ? "off" : "offline")),
+             w.state == MUSE_WIFI_CONNECTED ? w.ip : "-", muse_tr(muse_link_state_name(muse_link_state())),
+             muse_tr(muse_hatch_state_name(h.state)), muse_tr(phone), batt,
              esp_app_get_description()->version);
     muse_text_to_ascii(buf, n);   /* network and phone names can have curly quotes */
 }
@@ -296,12 +298,12 @@ static void battery_text(char *buf, size_t n)
     pm_text(slept, b.slept_pm);
     pm_text(busy, b.busy_pm);
     snprintf(buf, n, "%s %s\nBatt  %d>%d%%\nRate  %s\nFull  %s\nOff   %s\nSleep %s\nWakes %s\nBusy  %s",
-             b.running ? "On batt" : "Last run", t, b.pct_start, b.pct_now, rate, full, off, slept, wakes, busy);
+             muse_tr(b.running ? "On batt" : "Last run"), t, b.pct_start, b.pct_now, rate, full, off, slept, wakes, busy);
 }
 
 static void refresh(void)
 {
-    char buf[160];
+    char buf[320];
     if (s_view == VIEW_LIST) {
         for (int i = 0; i < ITEM_COUNT; i++) {
             value_text(i, buf, sizeof(buf));
@@ -352,9 +354,9 @@ static void show(view_t view)
         select_hint("Back");
         break;
     case VIEW_POWER: {
-        char text[96];
+        char text[256];
         snprintf(text, sizeof(text), "Turn Muse off?\n\nPress the %s button to turn it back on.",
-                 muse_board->keyboard ? "GO" : muse_board->aux_button);
+                 muse_board->keyboard ? "GO" : muse_tr(muse_board->aux_button));
         set_text(s_title, "POWER OFF");
         set_text(s_page, text);
         set_text(s_hint_down, muse_board->keyboard ? "Esc Cancel" : "Cancel");

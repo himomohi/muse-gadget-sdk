@@ -66,8 +66,10 @@ with colour states, FEED / PLAY / WASH / SLEEP action buttons, and the
 character switcher (`< name >`). Tapping the face pets the character
 (affection up + gaze follows the tap).
 
-Labels are English and work with the default fonts; upstream
-`CONFIG_MUSE_CJK_FONT` remains available for chat captions.
+Labels and character names are Korean by default with
+`CONFIG_MUSE_LANGUAGE_KOREAN`. Full Hangul and jamo are included at 12/16 px.
+Disable that option to keep the upstream English interface. The upstream
+`CONFIG_MUSE_CJK_FONT` remains available for Chinese/Japanese captions.
 
 The care tile uses the upstream tile-change callback and face-active
 tracking. Both directions are enabled on the settings tile, and control

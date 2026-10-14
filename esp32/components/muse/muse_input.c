@@ -43,6 +43,7 @@
 #include "muse_settings.h"
 #include "muse_state.h"
 #include "muse_ui.h"
+#include "muse_locale.h"
 #include "muse_voice.h"
 #include "muse_wifi.h"
 #if CONFIG_MUSE_WATCHER_CAMERA
@@ -147,7 +148,7 @@ static void toggle_phone_setup(void)
     if (on && b.name[0]) {
         muse_state_set_caption("PHONE SETUP: %s", b.name);
     } else {
-        muse_state_set_caption("PHONE SETUP %s", on ? "ON" : "OFF");
+        muse_state_set_caption("PHONE SETUP %s", muse_tr(on ? "ON" : "OFF"));
     }
 }
 

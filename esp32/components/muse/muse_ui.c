@@ -56,6 +56,8 @@
 #include "boards/watcher_camera.h"
 #endif
 
+#include "muse_locale_ui.h"
+
 static const char *TAG = "muse_ui";
 
 #define METER_SEGS 14
@@ -543,9 +545,9 @@ static const lv_font_t *caption_font(void)
         font = lv_font_unscii_16;
         font.fallback = &muse_font_cjk_16;
     }
-    return &font;
+    return muse_locale_font(&font);
 #else
-    return &lv_font_unscii_16;
+    return muse_locale_font(&lv_font_unscii_16);
 #endif
 }
 
@@ -769,6 +771,10 @@ static void build_answer(lv_obj_t *face, int ring_in)
     }
     const lv_font_t *font = caption_font();
     int cw = lv_font_get_glyph_width(font, 'M', ' ');
+#if CONFIG_MUSE_LANGUAGE_KOREAN
+    int kw = lv_font_get_glyph_width(font, 0xac00, 0);
+    if (kw > cw) cw = kw;
+#endif
     int pitch = lv_font_get_line_height(font) + CAPTION_LINE_SPACE;
 
     answer_layout_t *l = &s_answers[ANSWER_HEARD];
@@ -996,7 +1002,7 @@ static void build_screen(void)
     if (s_small) {
         /* Two lines over the bottom of the face, on a dark band so they stay
          * legible. A tall screen has room to keep them above the mic icon. */
-        lv_obj_set_size(s_caption_lbl, s_w, 2 * 8 + 2 + 4);
+        lv_obj_set_size(s_caption_lbl, s_w, 2 * lv_font_get_line_height(muse_locale_font(&lv_font_unscii_8)) + 2 + 4);
         lv_obj_set_style_pad_ver(s_caption_lbl, 2, 0);
         lv_obj_set_style_text_line_space(s_caption_lbl, 2, 0);
         lv_obj_set_style_bg_color(s_caption_lbl, lv_color_black(), 0);
@@ -1004,10 +1010,16 @@ static void build_screen(void)
         lv_label_set_long_mode(s_caption_lbl, LV_LABEL_LONG_MODE_DOTS);
         /* Touch screens need the caption above the navigation dots too. */
         lv_obj_align(s_caption_lbl, LV_ALIGN_BOTTOM_MID, 0, (s_tall || s_tv) ? -30 : -3);
-#if CONFIG_MUSE_CJK_FONT
+#if CONFIG_MUSE_CJK_FONT || CONFIG_MUSE_LANGUAGE_KOREAN
         /* CJK doesn't fit unscii-8's cell, so a reply with CJK in it fills the
          * band one line at a time in the 16 px caption font instead. */
-        muse_state_set_cjk_page(s_w / lv_font_get_glyph_width(caption_font(), 'M', ' '), 1);
+        muse_state_set_cjk_page(s_w / lv_font_get_glyph_width(caption_font(),
+#if CONFIG_MUSE_LANGUAGE_KOREAN
+            0xac00,
+#else
+            'M',
+#endif
+            ' '), 1);
 #endif
 
         s_bar = lv_obj_create(face);
@@ -1417,14 +1429,14 @@ static void update_chrome(float now)
     /* The same card asks for the talk button when the Muse app pairs. */
     bool confirm = !b.passkey && muse_link_state() == MUSE_LINK_CONFIRM;
     if (b.passkey || confirm) {
-        char code[24], hint[40];
+        char code[64], hint[128];
         if (confirm) {
             if (muse_board->touch_talk || !muse_board->audio_init) {
                 strlcpy(code, "Tap screen", sizeof(code));
                 strlcpy(hint, "Tap to confirm pairing", sizeof(hint));
             } else {
                 strlcpy(code, s_small ? "Press" : "Press button", sizeof(code));
-                snprintf(hint, sizeof(hint), s_small ? "%s button" : "Press the %s button", muse_board->talk_button);
+                snprintf(hint, sizeof(hint), s_small ? "%s button" : "Press the %s button", muse_tr(muse_board->talk_button));
             }
         } else {
             snprintf(code, sizeof(code), "%06lu", (unsigned long)b.passkey);
@@ -1596,9 +1608,9 @@ static void update_status(muse_mode_t mode, float now)
     }
     if (fresh) {
         lv_obj_t *lbl = answer >= 0 ? s_reply_lbl : s_caption_lbl;
-#if CONFIG_MUSE_CJK_FONT
+#if CONFIG_MUSE_CJK_FONT || CONFIG_MUSE_LANGUAGE_KOREAN
         if (s_small) {
-            lv_obj_set_style_text_font(s_caption_lbl, muse_text_has_cjk(caption) ? caption_font() : &lv_font_unscii_8, 0);
+            lv_obj_set_style_text_font(s_caption_lbl, muse_locale_font(muse_text_has_cjk(caption) ? caption_font() : &lv_font_unscii_8), 0);
         }
 #endif
         lv_label_set_text(lbl, caption);
