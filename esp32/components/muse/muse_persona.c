@@ -62,8 +62,6 @@ typedef struct {
 } rgb_t;
 
 typedef struct {
-    const char *id;
-    const char *name; /* UTF-8 */
     uint32_t body_dark, body_mid, body_light;
     uint32_t face, face_dark;
     uint32_t accent, accent2;
@@ -76,7 +74,6 @@ typedef struct {
 
 static const chardef_t CHARS[PERSONA_COUNT] = {
     [PERSONA_MALLOW] = {
-        .id = "mallow", .name = "몰로",
         .body_dark = 0xd9b48f, .body_mid = 0xf0d3ac, .body_light = 0xfbeed3,
         .face = 0xfff6e6, .face_dark = 0xf3ddba,
         .accent = 0xff9ecf, .accent2 = 0xb78cff,
@@ -84,7 +81,6 @@ static const chardef_t CHARS[PERSONA_COUNT] = {
         .bounce = 1.0f, .blink_min = 2.0f, .blink_max = 5.0f,
     },
     [PERSONA_SPROUT] = {
-        .id = "sprout", .name = "새싹",
         .body_dark = 0x7fb069, .body_mid = 0xa3d18b, .body_light = 0xcdebb8,
         .face = 0xf4ffe9, .face_dark = 0xd9ecbf,
         .accent = 0x4fc96b, .accent2 = 0x2a9d8f,
@@ -92,7 +88,6 @@ static const chardef_t CHARS[PERSONA_COUNT] = {
         .bounce = 1.4f, .blink_min = 1.6f, .blink_max = 4.2f,
     },
     [PERSONA_PEBBLE] = {
-        .id = "pebble", .name = "몽돌",
         .body_dark = 0x6b7688, .body_mid = 0x8d99ae, .body_light = 0xb9c4d6,
         .face = 0xeef2fa, .face_dark = 0xd3dcea,
         .accent = 0x7fd4ff, .accent2 = 0x5a7dff,
@@ -100,31 +95,6 @@ static const chardef_t CHARS[PERSONA_COUNT] = {
         .bounce = 0.6f, .blink_min = 2.6f, .blink_max = 6.0f,
     },
 };
-
-static const char *const COSTUME_NAMES[COSTUME_COUNT] = {
-    [COSTUME_NONE] = "없음",
-    [COSTUME_NIGHTCAP] = "잠옷 모자",
-    [COSTUME_PARTY] = "파티 고깔",
-    [COSTUME_HEADPHONES] = "헤드폰",
-    [COSTUME_UMBRELLA] = "우산",
-    [COSTUME_SCARF] = "목도리",
-    [COSTUME_BANDAGE] = "붕대",
-};
-
-uint8_t persona_character_count(void) { return PERSONA_COUNT; }
-const char *persona_character_id(uint8_t id)
-{
-    return id < PERSONA_COUNT ? CHARS[id].id : CHARS[0].id;
-}
-const char *persona_character_name(uint8_t id)
-{
-    return id < PERSONA_COUNT ? CHARS[id].name : CHARS[0].name;
-}
-uint8_t persona_costume_count(void) { return COSTUME_COUNT; }
-const char *persona_costume_name(uint8_t id)
-{
-    return id < COSTUME_COUNT ? COSTUME_NAMES[id] : COSTUME_NAMES[0];
-}
 
 /* Per-mode accent colours for the surrounding UI. */
 uint32_t muse_pixel_accent(muse_mode_t mode)
@@ -417,7 +387,7 @@ static void draw_mouth(float x, float y, mouth_t m, float open, float scale)
     }
 }
 
-static void draw_blush(float x, float y, float strength, float scale)
+static void draw_blush(float x, float y, float strength)
 {
     if (strength <= 0.05f) {
         return;
@@ -887,8 +857,8 @@ void muse_pixel_render(const muse_pose_t *p)
     if (mood <= -2) {
         blush = 0.1f;
     }
-    draw_blush(bd.fx - bd.fa * 0.7f, eye_y + 2.5f, blush, gs);
-    draw_blush(bd.fx + bd.fa * 0.7f, eye_y + 2.5f, blush, gs);
+    draw_blush(bd.fx - bd.fa * 0.7f, eye_y + 2.5f, blush);
+    draw_blush(bd.fx + bd.fa * 0.7f, eye_y + 2.5f, blush);
     draw_mouth(bd.fx, eye_y + 3.5f, mouth, mouth_open, gs);
 
     /* ---- costume ---- */

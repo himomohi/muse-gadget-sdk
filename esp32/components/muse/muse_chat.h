@@ -31,7 +31,8 @@ extern "C" {
  * Home Link uses) and runs each push-to-talk turn over it, entirely on the VM:
  *   speech -> POST /api/voice/dictation (streamed 24 kHz PCM, NDJSON transcripts)
  *   text   -> POST /chat/stream, reply events on POST /chat/subscribe
- *   reply  -> GET /api/voice/tts-stream?message_id=... (MP3, decoded here)
+ *   reply  -> text, shown at reading pace (start_tts in muse_chat_session.cpp
+ *             is where a TTS API of your own would plug in)
  *
  * Credentials: a device token, exchanged through the Muse API for the VM's own
  * token. If the account API rejects it and a VM ID is set, the token is tried
@@ -39,7 +40,10 @@ extern "C" {
  *
  * Without CONFIG_MUSE_HATCH (no PSRAM) the same API is backed by
  * muse_chat_link.c: the note rides Home Link's session to its paired VM and
- * replies come back as text only (no audio from turn_read).
+ * replies come back as text only (no audio from turn_read). Captions retain
+ * up to 1,023 UTF-8 bytes; at most two completed messages await processing.
+ * Bursts can omit older messages; subscription lines above 12 KiB are skipped.
+ * Use the Muse app for the full conversation.
  */
 
 typedef enum {
@@ -89,7 +93,7 @@ typedef enum {
     MUSE_HATCH_EV_REPLY,    /* reply text so far */
     MUSE_HATCH_EV_DONE,     /* reply complete; the audio stream is drained after this */
     MUSE_HATCH_EV_ERROR,    /* turn failed; text says why */
-    MUSE_HATCH_EV_SENT,     /* the VM has the note (CONFIG_MUSE_HATCH only) */
+    MUSE_HATCH_EV_SENT,     /* the VM has acknowledged the note */
 } muse_hatch_ev_t;
 
 /* Non-blocking; copies the event's text. Events of cancelled turns are dropped. */

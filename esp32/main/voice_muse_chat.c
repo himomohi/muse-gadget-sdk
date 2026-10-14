@@ -86,13 +86,14 @@ size_t muse_settings_hatch_token_len(void) {
     return 0;
 }
 
-// Replies are always spoken: there's no screen to show them on.
+// No screen to show replies on: anything played goes to the speaker.
 bool muse_settings_speaker_on(void) {
     return true;
 }
 
 // No screen either, so reply text is never shown; Muse's default page.
-void muse_state_page(int *cols, int *lines) {
+void muse_state_page(bool cjk, int *cols, int *lines) {
+    (void)cjk;
     *cols = 16;
     *lines = 2;
 }

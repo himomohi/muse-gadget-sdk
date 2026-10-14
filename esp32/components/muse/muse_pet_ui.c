@@ -35,6 +35,8 @@ static lv_obj_t *s_vals[5];
 static lv_obj_t *s_status;
 static lv_obj_t *s_sleep_btn;
 static lv_obj_t *s_sleep_lbl;
+static bool s_dirty = true;
+static bool s_was_visible;
 static uint32_t s_last_drawn; /* pet.ticks at last refresh */
 
 static const char *const STAT_NAMES[5] = { "SAT", "JOY", "CLEAN", "NRG", "LOVE" };
@@ -54,28 +56,28 @@ static void on_feed(lv_event_t *e)
 {
     (void)e;
     muse_pet_feed();
-    s_last_drawn = 0; /* force refresh */
+    s_dirty = true; /* force refresh */
 }
 
 static void on_play(lv_event_t *e)
 {
     (void)e;
     muse_pet_play();
-    s_last_drawn = 0;
+    s_dirty = true;
 }
 
 static void on_clean(lv_event_t *e)
 {
     (void)e;
     muse_pet_clean();
-    s_last_drawn = 0;
+    s_dirty = true;
 }
 
 static void on_sleep(lv_event_t *e)
 {
     (void)e;
     muse_pet_toggle_sleep();
-    s_last_drawn = 0;
+    s_dirty = true;
 }
 
 static void on_char_prev(lv_event_t *e)
@@ -85,7 +87,7 @@ static void on_char_prev(lv_event_t *e)
     muse_pet_snapshot(&s);
     uint8_t n = persona_character_count();
     muse_pet_set_character((s.character + n - 1) % n);
-    s_last_drawn = 0;
+    s_dirty = true;
 }
 
 static void on_char_next(lv_event_t *e)
@@ -94,7 +96,7 @@ static void on_char_next(lv_event_t *e)
     pet_state_t s;
     muse_pet_snapshot(&s);
     muse_pet_set_character((s.character + 1) % persona_character_count());
-    s_last_drawn = 0;
+    s_dirty = true;
 }
 
 static lv_obj_t *make_button(lv_obj_t *parent, const char *text, int w, int h)
@@ -111,6 +113,8 @@ static lv_obj_t *make_button(lv_obj_t *parent, const char *text, int w, int h)
 
 void muse_pet_ui_build(lv_obj_t *tile)
 {
+    s_dirty = true;
+    s_was_visible = false;
     /* Title row: < name · stage > */
     lv_obj_t *row = lv_obj_create(tile);
     lv_obj_remove_style_all(row);
@@ -210,14 +214,20 @@ static const char *mood_text(const pet_state_t *s)
 void muse_pet_ui_tick(bool visible)
 {
     if (!visible) {
+        s_was_visible = false;
         return;
+    }
+    if (!s_was_visible) {
+        s_dirty = true;
+        s_was_visible = true;
     }
     pet_state_t s;
     muse_pet_snapshot(&s);
-    if (s.ticks == s_last_drawn) {
+    if (!s_dirty && s.ticks == s_last_drawn) {
         return;
     }
     s_last_drawn = s.ticks;
+    s_dirty = false;
 
     char buf[48];
     snprintf(buf, sizeof(buf), "%s - %s", persona_character_id(s.character),

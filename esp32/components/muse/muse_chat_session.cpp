@@ -26,9 +26,8 @@
  *   2. POST /chat/stream with the transcript. The reply arrives as events on
  *      the connection's long-lived POST /chat/subscribe stream: one or more
  *      assistant messages, each delta.message_start / text_append / message_done.
- *   3. GET /api/voice/tts-stream?message_id=... for each finished message:
- *      MP3, decoded here and resampled to 16 kHz for the speaker. With the
- *      speaker off there's no request: the text is shown at reading pace.
+ *   3. Each finished message is shown at reading pace (see start_tts to
+ *      speak it with a TTS API of your own; Muse doesn't speak gadget replies).
  * A turn has no explicit end event; like Sidekick, it settles once every
  * message is done and nothing has arrived for a few seconds.
  *
@@ -166,7 +165,6 @@ static bool s_connected;
 static muse_hatch_vm_t s_vm;       /* cached per-VM credentials */
 static bool s_vm_direct;           /* s_vm.vm_token is the device token itself */
 static char s_host[MUSE_HOST_MAX + 1];
-static int s_tts_path;             /* 0: /api/voice/tts-stream, 1: /voice/tts-stream */
 /* When to connect without a turn asking: once Wi-Fi is up, again with backoff
  * if that fails or the connection drops, not after an idle close. */
 static int64_t s_auto_next_us;
@@ -232,6 +230,7 @@ struct turn_t {
     char committed[512];     /* finals that arrived before the half-close */
     char partial[512];
     char user_ids[2][80];
+    muse_chat_rejected_t rejected;
     msg_t msgs[MAX_MSGS];
     int nmsgs;
     bool agent_busy;
@@ -930,7 +929,8 @@ static size_t resample(resampler_t *r, const int16_t *in, size_t n, int16_t *out
         size_t i = r->pos >> 16;
         int32_t a = i ? in[i - 1] : r->prev;
         int32_t b = in[i];
-        out[o++] = a + (((b - a) * (int32_t)(r->pos & 0xffff)) >> 16);
+        /* (b - a) spans 17 bits and the fraction 16, so the product needs 64. */
+        out[o++] = (int16_t)(a + (int32_t)(((int64_t)(b - a) * (int64_t)(r->pos & 0xffff)) >> 16));
         r->pos += r->step;
     }
     r->pos -= n << 16;
@@ -1214,7 +1214,7 @@ static void post_chat(const char *text)
     }
     ESP_LOGI(TAG, "heard: \"%s\"", text);
     emit(MUSE_HATCH_EV_HEARD, text);
-    send_chat(text, "voice");
+    send_chat(text, "text");
 }
 
 /* A typed turn: the text goes straight to the chat. */
@@ -1296,6 +1296,9 @@ static bool is_user_id(const char *id)
 /* The message `id` if it belongs to this turn, binding it on first sight; else -1. */
 static int bind_msg(const char *id, cJSON *payload)
 {
+    if (muse_chat_is_rejected(&s_turn.rejected, id)) {
+        return -1;
+    }
     int i = find_msg(id);
     if (i >= 0 || s_turn.phase != P_WAIT_REPLY) {
         return i;
@@ -1306,6 +1309,10 @@ static int bind_msg(const char *id, cJSON *payload)
     }
     /* Once the ack names our message, replies to anything else are someone else's. */
     if (parent && parent[0] && s_turn.acked && !is_user_id(parent) && find_msg(parent) < 0) {
+        muse_chat_reject(&s_turn.rejected, id);
+        return -1;
+    }
+    if ((!parent || !parent[0]) && s_turn.rejected.overflow) {
         return -1;
     }
     if (s_turn.nmsgs == MAX_MSGS) {
@@ -1504,38 +1511,27 @@ static void start_tts(void)
         if (m.tts != TTS_QUEUED) {
             continue;
         }
-        if (!muse_settings_speaker_on()) {
-            /* Nothing to fetch. Silence in place of the speech paces the
-             * captions, and ends the turn, just as the speech would. */
-            m.pcm_start = s_turn.pcm_out;
-            m.pcm_frames = (uint32_t)(m.len * MIC_RATE / TEXT_CHARS_PER_S);
-            m.tts = TTS_ACTIVE;
-            s_turn.tts_msg = i;
-            s_turn.silent = true;
-            ESP_LOGI(TAG, "speaker off: showing message %s (%u chars) without speech", m.id, (unsigned)m.len);
-            show_reply_start(m);
-            return;
-        }
-        char path[300], id[3 * 80 + 1];
-        query_escape(m.id, id, sizeof(id));
-        snprintf(path, sizeof(path), "%s?message_id=%s", s_tts_path ? "/voice/tts-stream" : "/api/voice/tts-stream",
-                 id);
-        int64_t sid = open_stream(K_TTS, "GET", path, nullptr, "audio/mpeg", nullptr, true);
-        if (!sid) {
-            disconnect("tts open failed");
-            turn_fail("CAN'T REACH MUSE");
-            return;
-        }
-        find_stream(sid)->msg = i;
-        mark(M_TTS);
+        /*
+         * Replies are text, shown at reading pace: silence in place of speech
+         * paces the captions and ends the turn. To speak them instead, send
+         * the message's text (s_turn.texts + i * TEXT_MAX, if texts was
+         * allocated; up to TEXT_MAX - 1 bytes) to a TTS API of your choice and
+         * play the MP3 it returns. In place of the silence below: keep
+         * m.tts = TTS_ACTIVE and s_turn.tts_msg = i, set s_turn.silent = false,
+         * m.pcm_start = s_turn.pcm_out, m.pcm_frames = 0, s_turn.mp3_len = 0,
+         * s_turn.mp3_ended = false, s_turn.kbps = 0, s_turn.down_rate = 0 and
+         * mp3dec_init(&s_turn.dec). Then, on this task, pass the MP3 to
+         * tts_data() as it arrives (it buffers up to MP3_BUF and drops the
+         * rest, so hold off while it's full) and set s_turn.mp3_ended at the
+         * end. decode() plays it at the speaker's volume, captions following,
+         * and finishes the message once it's drained.
+         */
         m.pcm_start = s_turn.pcm_out;
-        m.pcm_frames = 0;
+        m.pcm_frames = (uint32_t)(m.len * MIC_RATE / TEXT_CHARS_PER_S);
         m.tts = TTS_ACTIVE;
         s_turn.tts_msg = i;
-        s_turn.mp3_len = 0;
-        s_turn.mp3_ended = false;
-        s_turn.down_rate = 0;
-        mp3dec_init(&s_turn.dec);
+        s_turn.silent = true;
+        ESP_LOGI(TAG, "showing message %s (%u chars)", m.id, (unsigned)m.len);
         show_reply_start(m);
         return;
     }
@@ -1665,12 +1661,17 @@ static void check_turn(void)
     bool text = s_turn.text;
     if (t - s_turn.start_us > (text ? TEXT_TURN_CAP_US : TURN_CAP_US)) {
         ESP_LOGW(TAG, "turn hit the time cap");
+        /* A voice turn that waited out the cap on a busy agent got no reply at all. */
+        if (!text && !s_turn.nmsgs) {
+            turn_fail("NO REPLY FROM MUSE");
+            return;
+        }
         turn_done(false);
         return;
     }
     if (!s_turn.nmsgs) {
-        /* A typed turn waits as long as the agent says it's working. */
-        if (t - s_turn.chat_us > (text ? TEXT_REPLY_TIMEOUT_US : REPLY_TIMEOUT_US) && !(text && s_turn.agent_busy)) {
+        /* Wait as long as the agent says it's working; the turn cap still applies. */
+        if (t - s_turn.chat_us > (text ? TEXT_REPLY_TIMEOUT_US : REPLY_TIMEOUT_US) && !s_turn.agent_busy) {
             turn_fail("NO REPLY FROM MUSE");
         }
         return;
@@ -1797,18 +1798,6 @@ static bool on_http_error(stream_t *s, const ApplicationResponseView &resp)
     memcpy(body, resp.body.data(), n);
     body[n] = '\0';
     ESP_LOGW(TAG, "stream %lld: HTTP %d %s", (long long)s->id, (int)resp.status, body);
-    if (s->kind == K_TTS && resp.status == 404 && s_tts_path == 0) {
-        /* Older VMs serve TTS without the /api prefix. */
-        int i = s->msg;
-        close_stream(s);
-        s_tts_path = 1;
-        if (i == s_turn.tts_msg) {
-            s_turn.msgs[i].tts = TTS_QUEUED;
-            s_turn.tts_msg = -1;
-            start_tts();
-        }
-        return true;
-    }
     return stream_end(s, false);
 }
 
@@ -2048,8 +2037,18 @@ extern "C" void muse_hatch_start(void)
     }
     cJSON_Hooks hooks = { json_alloc, heap_caps_free };
     cJSON_InitHooks(&hooks);
-    s_cmds = xQueueCreate(16, sizeof(cmd_t));
-    s_events = xQueueCreate(16, sizeof(ev_t));
+    /* Keep the command/event queues out of internal DRAM, which Wi-Fi, BLE and
+     * mbedTLS can exhaust: when the allocation failed here hatch_task never
+     * started and every turn was silently dropped. Fall back to internal RAM
+     * on parts without usable PSRAM. */
+    s_cmds = xQueueCreateWithCaps(16, sizeof(cmd_t), MALLOC_CAP_SPIRAM);
+    if (!s_cmds) {
+        s_cmds = xQueueCreate(16, sizeof(cmd_t));
+    }
+    s_events = xQueueCreateWithCaps(16, sizeof(ev_t), MALLOC_CAP_SPIRAM);
+    if (!s_events) {
+        s_events = xQueueCreate(16, sizeof(ev_t));
+    }
     s_in = xStreamBufferCreateWithCaps(IN_BYTES, 1, MALLOC_CAP_SPIRAM);
     s_out = xStreamBufferCreateWithCaps(OUT_BYTES, 1, MALLOC_CAP_SPIRAM);
     s_turn.chunk = static_cast<uint8_t *>(psram_alloc(DICT_CHUNK_BYTES + sizeof(MUSE_HATCH_NOTE_TAIL)));

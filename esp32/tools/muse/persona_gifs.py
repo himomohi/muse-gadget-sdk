@@ -37,7 +37,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         exe = os.path.join(tmp, "persona_anim")
         subprocess.run(
-            ["cc", "-O2", "-Wall", "-I", "components/muse", "tools/muse/persona_anim.c", SRC,
+            ["cc", "-O2", "-Wall", "-I", "components/muse", "tools/muse/persona_anim.c", SRC, "components/muse/muse_persona_info.c",
              "-lm", "-o", exe],
             cwd=ROOT, check=True, capture_output=True, text=True,
         )

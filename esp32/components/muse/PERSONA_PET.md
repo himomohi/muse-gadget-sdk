@@ -23,7 +23,9 @@ This fork adds a personality layer on top of the Muse Gadget SDK:
 An original multi-character 64x64 pixel-art renderer implementing the
 `muse_pixel.h` API. Selected at build time when `CONFIG_MUSE_PERSONA=y`
 (the default); a user-supplied `components/muse/avatar/muse_pixel.c` still
-takes precedence.
+takes precedence. Character metadata is built separately in
+`muse_persona_info.c`, so the pet engine can still link when a custom
+avatar replaces the persona renderer.
 
 - **Multi-character**: three original characters — mallow (몰로), sprout
   (새싹), pebble (몽돌) — switchable at runtime via `pose.character`.
@@ -64,7 +66,13 @@ with colour states, FEED / PLAY / WASH / SLEEP action buttons, and the
 character switcher (`< name >`). Tapping the face pets the character
 (affection up + gaze follows the tap).
 
-Labels are English: the firmware fonts have no Korean glyphs.
+Labels are English and work with the default fonts; upstream
+`CONFIG_MUSE_CJK_FONT` remains available for chat captions.
+
+The care tile uses the upstream tile-change callback and face-active
+tracking. Both directions are enabled on the settings tile, and control
+hints are hidden while care is visible. Care actions refresh immediately,
+including before the first minute tick and when returning from the face.
 
 ## Kconfig
 
